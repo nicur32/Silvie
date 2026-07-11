@@ -1,0 +1,604 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Silvie — Agente de Procesos | Rhenic</title>
+  <meta name="description" content="Conversá con Silvie y documentá tu primer proceso operativo gratis. Rhenic — IA aplicada a la consultoría de procesos."/>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet"/>
+  <!-- PlantUML diagrams rendered via Kroki.io -->
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:        #07090f;
+      --surface:   #0d1120;
+      --surface2:  #141929;
+      --border:    rgba(255,255,255,0.07);
+      --accent:    #7c3aed;
+      --accent2:   #4f46e5;
+      --accent-glow: rgba(124,58,237,0.25);
+      --silvie-bubble: linear-gradient(135deg,#6d28d9,#4f46e5);
+      --user-bubble:   #151e35;
+      --text:      #e2e8f0;
+      --text-muted:#8892a4;
+      --green:     #10b981;
+      --radius:    14px;
+    }
+
+    html, body { height: 100%; font-family: 'Inter', sans-serif; background: var(--bg); color: var(--text); }
+
+    /* ── Layout ── */
+    #app { display: flex; height: 100vh; overflow: hidden; }
+
+    /* ── Sidebar ── */
+    #sidebar {
+      width: 280px; min-width: 280px;
+      background: var(--surface);
+      border-right: 1px solid var(--border);
+      display: flex; flex-direction: column;
+      padding: 28px 20px;
+      gap: 28px;
+    }
+
+    .logo { display: flex; align-items: center; gap: 10px; }
+    .logo-icon {
+      width: 36px; height: 36px; border-radius: 10px;
+      background: var(--silvie-bubble);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 18px;
+    }
+    .logo-text { font-size: 18px; font-weight: 700; letter-spacing: -0.3px; }
+    .logo-sub  { font-size: 11px; color: var(--text-muted); letter-spacing: 0.5px; text-transform: uppercase; }
+
+    /* Silvie avatar */
+    .silvie-card {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 20px;
+      display: flex; flex-direction: column; align-items: center; gap: 12px;
+    }
+    .silvie-avatar {
+      width: 72px; height: 72px; border-radius: 50%;
+      background: var(--silvie-bubble);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 32px;
+      box-shadow: 0 0 0 4px var(--accent-glow);
+      position: relative;
+    }
+    .silvie-avatar::after {
+      content: '';
+      position: absolute; bottom: 2px; right: 2px;
+      width: 14px; height: 14px; border-radius: 50%;
+      background: var(--green);
+      border: 2px solid var(--surface);
+    }
+    .silvie-name { font-weight: 600; font-size: 15px; }
+    .silvie-role { font-size: 12px; color: var(--text-muted); text-align: center; line-height: 1.4; }
+
+    /* Stage progress */
+    .stages-label { font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px; font-weight: 600; }
+    .stages { display: flex; flex-direction: column; gap: 6px; }
+    .stage-item {
+      display: flex; align-items: center; gap: 10px;
+      padding: 8px 10px; border-radius: 8px;
+      font-size: 13px; color: var(--text-muted);
+      transition: all 0.2s;
+    }
+    .stage-item.active  { background: var(--accent-glow); color: #a78bfa; font-weight: 500; }
+    .stage-item.done    { color: var(--green); }
+    .stage-dot {
+      width: 8px; height: 8px; border-radius: 50%;
+      background: var(--border); flex-shrink: 0;
+      transition: background 0.3s;
+    }
+    .stage-item.active .stage-dot  { background: #a78bfa; box-shadow: 0 0 6px #a78bfa; }
+    .stage-item.done   .stage-dot  { background: var(--green); }
+
+    /* Lead data */
+    #lead-card { display: none; }
+    #lead-card.visible {
+      display: block;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 16px;
+    }
+    .lead-title { font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 10px; font-weight: 600; }
+    .lead-field { font-size: 12px; color: var(--text-muted); margin-bottom: 4px; }
+    .lead-field span { color: var(--text); font-weight: 500; }
+
+    /* ── Main chat ── */
+    #chat-main {
+      flex: 1; display: flex; flex-direction: column; overflow: hidden;
+    }
+
+    #chat-header {
+      padding: 18px 28px;
+      border-bottom: 1px solid var(--border);
+      display: flex; align-items: center; gap: 12px;
+      background: rgba(13,17,32,0.8);
+      backdrop-filter: blur(12px);
+    }
+    #chat-header h1 { font-size: 16px; font-weight: 600; }
+    #chat-header p  { font-size: 12px; color: var(--text-muted); }
+    .status-pill {
+      margin-left: auto;
+      background: rgba(16,185,129,0.12);
+      color: var(--green);
+      font-size: 11px; font-weight: 600;
+      padding: 4px 10px; border-radius: 99px;
+      border: 1px solid rgba(16,185,129,0.2);
+    }
+
+    /* Messages */
+    #messages {
+      flex: 1; overflow-y: auto;
+      padding: 28px;
+      display: flex; flex-direction: column; gap: 20px;
+      scroll-behavior: smooth;
+    }
+    #messages::-webkit-scrollbar { width: 4px; }
+    #messages::-webkit-scrollbar-track { background: transparent; }
+    #messages::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+
+    .msg { display: flex; gap: 12px; max-width: 75%; animation: fadeUp 0.3s ease; }
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(10px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    .msg.user  { align-self: flex-end; flex-direction: row-reverse; }
+    .msg.silvie{ align-self: flex-start; }
+
+    .msg-avatar {
+      width: 34px; height: 34px; border-radius: 50%; flex-shrink: 0;
+      display: flex; align-items: center; justify-content: center; font-size: 16px;
+    }
+    .msg.silvie .msg-avatar { background: var(--silvie-bubble); box-shadow: 0 0 10px var(--accent-glow); }
+    .msg.user   .msg-avatar { background: var(--user-bubble); }
+
+    .msg-bubble {
+      padding: 14px 18px; border-radius: 18px;
+      font-size: 14px; line-height: 1.65;
+    }
+    .msg.silvie .msg-bubble {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-top-left-radius: 4px;
+    }
+    .msg.user .msg-bubble {
+      background: var(--user-bubble);
+      border: 1px solid rgba(124,58,237,0.3);
+      border-top-right-radius: 4px;
+    }
+    .msg-bubble p { margin-bottom: 8px; }
+    .msg-bubble p:last-child { margin-bottom: 0; }
+    .msg-bubble strong { color: #c4b5fd; }
+    .msg-bubble ul, .msg-bubble ol { margin: 6px 0 6px 20px; }
+    .msg-bubble li { margin-bottom: 4px; }
+
+    /* Typing indicator */
+    #typing {
+      display: none; align-self: flex-start;
+      padding: 12px 18px;
+      background: var(--surface2); border: 1px solid var(--border);
+      border-radius: 18px; border-top-left-radius: 4px;
+      gap: 5px; align-items: center;
+    }
+    #typing.visible { display: flex; animation: fadeUp 0.3s ease; }
+    .dot {
+      width: 7px; height: 7px; border-radius: 50%;
+      background: var(--text-muted); animation: bounce 1.2s infinite;
+    }
+    .dot:nth-child(2) { animation-delay: 0.2s; }
+    .dot:nth-child(3) { animation-delay: 0.4s; }
+    @keyframes bounce {
+      0%,60%,100% { transform: translateY(0); }
+      30%         { transform: translateY(-6px); }
+    }
+
+    /* BPMN panel */
+    #bpmn-panel {
+      display: none;
+      margin: 0 28px 12px;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      overflow: hidden;
+      background: #fff;
+    }
+    #bpmn-panel.visible { display: block; animation: fadeUp 0.4s ease; }
+    #bpmn-toolbar {
+      background: var(--surface2);
+      padding: 10px 16px;
+      display: flex; align-items: center; justify-content: space-between;
+      border-bottom: 1px solid var(--border);
+    }
+    #bpmn-toolbar span { font-size: 13px; font-weight: 600; color: #a78bfa; }
+    #bpmn-canvas { min-height: 200px; max-height: 500px; overflow: auto; display: flex; align-items: center; justify-content: center; padding: 12px; }
+    #bpmn-canvas img { max-width: 100%; height: auto; }
+    #bpmn-canvas .loading-diagram { color: #888; font-size: 13px; padding: 20px; }
+    .bpmn-btn {
+      font-size: 12px; padding: 6px 14px; border-radius: 8px;
+      background: var(--accent); color: #fff; border: none; cursor: pointer;
+      font-weight: 500; transition: opacity 0.2s; margin-left: 6px;
+    }
+    .bpmn-btn:hover { opacity: 0.85; }
+
+    /* CTA card */
+    #cta-card {
+      display: none;
+      margin: 0 28px 12px;
+      background: linear-gradient(135deg, rgba(124,58,237,0.15), rgba(79,70,229,0.1));
+      border: 1px solid rgba(124,58,237,0.3);
+      border-radius: var(--radius);
+      padding: 22px 24px;
+    }
+    #cta-card.visible { display: flex; align-items: center; justify-content: space-between; gap: 16px; animation: fadeUp 0.4s ease; }
+    #cta-card h3 { font-size: 15px; font-weight: 600; margin-bottom: 4px; }
+    #cta-card p  { font-size: 13px; color: var(--text-muted); }
+    #btn-calendly {
+      white-space: nowrap; flex-shrink: 0;
+      padding: 11px 22px; border-radius: 10px;
+      background: var(--silvie-bubble);
+      color: #fff; font-size: 14px; font-weight: 600;
+      border: none; cursor: pointer; text-decoration: none;
+      transition: transform 0.15s, box-shadow 0.15s;
+      box-shadow: 0 4px 20px var(--accent-glow);
+    }
+    #btn-calendly:hover { transform: translateY(-2px); box-shadow: 0 8px 28px var(--accent-glow); }
+
+    /* Input area */
+    #input-area {
+      padding: 16px 28px 24px;
+      border-top: 1px solid var(--border);
+      display: flex; gap: 10px; align-items: flex-end;
+    }
+    #input-wrap {
+      flex: 1; background: var(--surface2);
+      border: 1px solid var(--border); border-radius: 14px;
+      transition: border-color 0.2s;
+      display: flex; align-items: flex-end; gap: 8px;
+      padding: 12px 16px;
+    }
+    #input-wrap:focus-within { border-color: rgba(124,58,237,0.5); }
+    #msg-input {
+      flex: 1; background: transparent; border: none; outline: none;
+      color: var(--text); font-size: 14px; font-family: inherit;
+      resize: none; max-height: 140px; line-height: 1.5;
+    }
+    #msg-input::placeholder { color: var(--text-muted); }
+    #btn-send {
+      width: 40px; height: 40px; border-radius: 10px; flex-shrink: 0;
+      background: var(--silvie-bubble);
+      border: none; cursor: pointer; color: #fff;
+      display: flex; align-items: center; justify-content: center;
+      transition: transform 0.15s, opacity 0.15s;
+      font-size: 18px;
+    }
+    #btn-send:hover:not(:disabled) { transform: scale(1.08); }
+    #btn-send:disabled { opacity: 0.4; cursor: default; }
+
+    /* Responsive */
+    @media (max-width: 680px) {
+      #sidebar { display: none; }
+      .msg { max-width: 90%; }
+    }
+  </style>
+</head>
+<body>
+<div id="app">
+
+  <!-- ── Sidebar ── -->
+  <aside id="sidebar">
+    <div class="logo">
+      <div class="logo-icon">⬡</div>
+      <div>
+        <div class="logo-text">Rhenic</div>
+        <div class="logo-sub">Procesos &amp; IA</div>
+      </div>
+    </div>
+
+    <div class="silvie-card">
+      <div class="silvie-avatar">🤖</div>
+      <div class="silvie-name">Silvie</div>
+      <div class="silvie-role">Agente de levantamiento de procesos · Rhenic</div>
+    </div>
+
+    <div>
+      <div class="stages-label" style="margin-bottom:12px;">Progreso</div>
+      <div class="stages" id="stage-list">
+        <div class="stage-item active" data-stage="IDENTIFICATION">
+          <div class="stage-dot"></div> Identificación
+        </div>
+        <div class="stage-item" data-stage="PROCESS_INTERVIEW">
+          <div class="stage-dot"></div> Levantamiento
+        </div>
+        <div class="stage-item" data-stage="NARRATIVE_REVIEW">
+          <div class="stage-dot"></div> Revisión
+        </div>
+        <div class="stage-item" data-stage="BPMN_READY">
+          <div class="stage-dot"></div> Diagrama BPMN
+        </div>
+        <div class="stage-item" data-stage="CTA">
+          <div class="stage-dot"></div> Próximos pasos
+        </div>
+      </div>
+    </div>
+
+    <div id="lead-card">
+      <div class="lead-title">Lead capturado</div>
+      <div class="lead-field" id="lf-nombre"></div>
+      <div class="lead-field" id="lf-empresa"></div>
+      <div class="lead-field" id="lf-email"></div>
+      <div class="lead-field" id="lf-cargo"></div>
+    </div>
+  </aside>
+
+  <!-- ── Main ── -->
+  <main id="chat-main">
+    <div id="chat-header">
+      <div class="silvie-avatar" style="width:38px;height:38px;font-size:20px;border-radius:50%;background:linear-gradient(135deg,#6d28d9,#4f46e5);display:flex;align-items:center;justify-content:center;">🤖</div>
+      <div>
+        <h1>Silvie</h1>
+        <p>Agente de procesos · Rhenic</p>
+      </div>
+      <div class="status-pill">● En línea</div>
+    </div>
+
+    <div id="messages">
+      <!-- Messages injected here -->
+    </div>
+
+    <div id="typing">
+      <div class="dot"></div>
+      <div class="dot"></div>
+      <div class="dot"></div>
+    </div>
+
+    <!-- BPMN viewer -->
+    <div id="bpmn-panel">
+      <div id="bpmn-toolbar">
+        <span>📊 Diagrama de Proceso generado</span>
+        <div>
+          <button class="bpmn-btn" id="btn-download-svg" title="Descargar imagen del diagrama">⬇ SVG</button>
+          <button class="bpmn-btn" id="btn-download-bpmn" title="Descargar archivo editable para Bizagi">⬇ BPMN</button>
+        </div>
+      </div>
+      <div id="bpmn-canvas"></div>
+    </div>
+
+    <!-- CTA card -->
+    <div id="cta-card">
+      <div>
+        <h3>¿Listo para el siguiente paso?</h3>
+        <p>Instructivos, matriz de roles y tu Instructor Inteligente 24/7</p>
+      </div>
+      <a id="btn-calendly" href="#" target="_blank" rel="noopener">📅 Agendar reunión</a>
+    </div>
+
+    <!-- Input -->
+    <div id="input-area">
+      <div id="input-wrap">
+        <textarea id="msg-input" rows="1" placeholder="Escribí tu respuesta…"></textarea>
+      </div>
+      <button id="btn-send" title="Enviar">➤</button>
+    </div>
+  </main>
+
+</div>
+
+<script>
+  // ── State ──────────────────────────────────────────────
+  let sessionId    = null;
+  let currentStage = 'IDENTIFICATION';
+  let bpmnXml      = null;
+  let plantumlCode = null;
+  let svgData      = null;
+  let isLoading    = false;
+
+  const STAGE_ORDER = ['IDENTIFICATION','PROCESS_INTERVIEW','NARRATIVE_REVIEW','BPMN_READY','CTA'];
+
+  // ── DOM refs ────────────────────────────────────────────
+  const messagesEl  = document.getElementById('messages');
+  const inputEl     = document.getElementById('msg-input');
+  const sendBtn     = document.getElementById('btn-send');
+  const typingEl    = document.getElementById('typing');
+  const bpmnPanel   = document.getElementById('bpmn-panel');
+  const ctaCard     = document.getElementById('cta-card');
+  const leadCard    = document.getElementById('lead-card');
+  const calendlyBtn = document.getElementById('btn-calendly');
+
+  // ── Auto-resize textarea ────────────────────────────────
+  inputEl.addEventListener('input', () => {
+    inputEl.style.height = 'auto';
+    inputEl.style.height = Math.min(inputEl.scrollHeight, 140) + 'px';
+  });
+
+  // ── Send on Enter (Shift+Enter = newline) ───────────────
+  inputEl.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); }
+  });
+  sendBtn.addEventListener('click', sendMessage);
+
+  // ── Markdown-lite renderer ───────────────────────────────
+  function renderMarkdown(text) {
+    return text
+      .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+      .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+      .replace(/\*(.*?)\*/g, '<em>$1</em>')
+      .replace(/`(.*?)`/g, '<code style="background:rgba(255,255,255,0.08);padding:1px 5px;border-radius:4px;font-size:12px">$1</code>')
+      .replace(/^#{1,3} (.+)$/gm, '<strong>$1</strong>')
+      .replace(/^[-•]\s(.+)$/gm, '<li>$1</li>')
+      .replace(/(<li>.*<\/li>)/gs, '<ul>$1</ul>')
+      .replace(/^(\d+)\.\s(.+)$/gm, '<li>$2</li>')
+      .replace(/\n\n/g, '</p><p>')
+      .replace(/\n/g, '<br>')
+      .replace(/^/, '<p>').replace(/$/, '</p>');
+  }
+
+  // ── Append message bubble ───────────────────────────────
+  function appendMessage(role, text) {
+    const div = document.createElement('div');
+    div.className = `msg ${role}`;
+    div.innerHTML = `
+      <div class="msg-avatar">${role === 'silvie' ? '🤖' : '👤'}</div>
+      <div class="msg-bubble">${renderMarkdown(text)}</div>
+    `;
+    messagesEl.appendChild(div);
+    messagesEl.scrollTop = messagesEl.scrollHeight;
+  }
+
+  // ── Update stage sidebar ────────────────────────────────
+  function updateStageUI(stage) {
+    currentStage = stage;
+    const idx = STAGE_ORDER.indexOf(stage);
+    document.querySelectorAll('.stage-item').forEach((el, i) => {
+      el.classList.remove('active','done');
+      if (i < idx)  el.classList.add('done');
+      if (i === idx) el.classList.add('active');
+    });
+  }
+
+  // ── Update lead card ────────────────────────────────────
+  function updateLeadCard(lead) {
+    if (!lead || !lead.nombre) return;
+    leadCard.classList.add('visible');
+    document.getElementById('lf-nombre').innerHTML  = `<span>${lead.nombre}</span>`;
+    document.getElementById('lf-empresa').innerHTML = `Empresa: <span>${lead.empresa}</span>`;
+    document.getElementById('lf-email').innerHTML   = `Email: <span>${lead.email}</span>`;
+    document.getElementById('lf-cargo').innerHTML   = `Cargo: <span>${lead.cargo}</span>`;
+  }
+
+  // ── Render diagram via Kroki (PlantUML → SVG) ───────────
+  async function renderDiagram(puml, xml) {
+    plantumlCode = puml;
+    bpmnXml = xml;
+    bpmnPanel.classList.add('visible');
+
+    const canvas = document.getElementById('bpmn-canvas');
+    canvas.innerHTML = '<div class="loading-diagram">⏳ Generando diagrama visual…</div>';
+
+    try {
+      const res = await fetch('https://kroki.io/plantuml/svg', {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain' },
+        body: puml,
+      });
+
+      if (!res.ok) throw new Error(`Kroki HTTP ${res.status}`);
+      svgData = await res.text();
+
+      canvas.innerHTML = '';
+      const img = document.createElement('img');
+      img.src = 'data:image/svg+xml;base64,' + btoa(unescape(encodeURIComponent(svgData)));
+      img.alt = 'Diagrama de Proceso';
+      canvas.appendChild(img);
+    } catch (err) {
+      console.warn('Kroki render error:', err);
+      canvas.innerHTML =
+        '<p style="padding:16px;color:#888;font-size:13px">No se pudo renderizar el diagrama visual. Los archivos fueron guardados correctamente.</p>';
+    }
+
+    // Download SVG image
+    document.getElementById('btn-download-svg').onclick = () => {
+      if (!svgData) return;
+      const blob = new Blob([svgData], { type: 'image/svg+xml' });
+      const url  = URL.createObjectURL(blob);
+      const a    = Object.assign(document.createElement('a'), { href: url, download: 'proceso_rhenic.svg' });
+      a.click(); URL.revokeObjectURL(url);
+    };
+
+    // Download .bpmn file (for Bizagi)
+    document.getElementById('btn-download-bpmn').onclick = () => {
+      if (!bpmnXml) return;
+      const blob = new Blob([bpmnXml], { type: 'application/xml' });
+      const url  = URL.createObjectURL(blob);
+      const a    = Object.assign(document.createElement('a'), { href: url, download: 'proceso_rhenic.bpmn' });
+      a.click(); URL.revokeObjectURL(url);
+    };
+
+    messagesEl.scrollTop = messagesEl.scrollHeight;
+  }
+
+  // ── Show CTA card ───────────────────────────────────────
+  function showCTA(url) {
+    ctaCard.classList.add('visible');
+    calendlyBtn.href = url || '#';
+    messagesEl.scrollTop = messagesEl.scrollHeight;
+  }
+
+  // ── Send message ────────────────────────────────────────
+  async function sendMessage() {
+    const text = inputEl.value.trim();
+    if (!text || isLoading) return;
+
+    inputEl.value = '';
+    inputEl.style.height = 'auto';
+    isLoading = true;
+    sendBtn.disabled = true;
+
+    appendMessage('user', text);
+
+    // Show typing
+    typingEl.classList.add('visible');
+    messagesEl.scrollTop = messagesEl.scrollHeight;
+
+    try {
+      const res = await fetch('/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ session_id: sessionId, message: text }),
+      });
+
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json();
+
+      sessionId = data.session_id;
+
+      typingEl.classList.remove('visible');
+      appendMessage('silvie', data.response);
+      updateStageUI(data.stage);
+
+      if (data.lead_data && data.lead_data.nombre) updateLeadCard(data.lead_data);
+      if (data.plantuml_code) renderDiagram(data.plantuml_code, data.bpmn_xml);
+      if (data.show_calendly) showCTA(data.calendly_url);
+
+    } catch (err) {
+      typingEl.classList.remove('visible');
+      appendMessage('silvie', '⚠️ Ocurrió un error al procesar tu mensaje. Por favor intentá de nuevo.');
+      console.error(err);
+    } finally {
+      isLoading = false;
+      sendBtn.disabled = false;
+      inputEl.focus();
+    }
+  }
+
+  // ── Init greeting ───────────────────────────────────────
+  window.addEventListener('DOMContentLoaded', async () => {
+    // Trigger Silvie's opening message
+    try {
+      const res = await fetch('/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message: '__INIT__' }),
+      });
+      if (!res.ok) throw new Error();
+      const data = await res.json();
+      sessionId = data.session_id;
+      appendMessage('silvie', data.response);
+    } catch {
+      appendMessage('silvie',
+        '¡Hola! Soy **Silvie**, la agente de procesos de **Rhenic**. 👋\n\n' +
+        'Estoy acá para ayudarte a documentar tu primer proceso operativo, de forma gratuita y sin compromiso.\n\n' +
+        '¿Me contás tu nombre y el de tu empresa para comenzar?'
+      );
+    }
+    inputEl.focus();
+  });
+</script>
+</body>
+</html>
