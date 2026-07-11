@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com"/>
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet"/>
-  <!-- PlantUML diagrams rendered via Kroki.io -->
+  <script src="https://unpkg.com/bpmn-js@14/dist/bpmn-viewer.production.min.js"></script>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -217,15 +217,13 @@
       border-bottom: 1px solid var(--border);
     }
     #bpmn-toolbar span { font-size: 13px; font-weight: 600; color: #a78bfa; }
-    #bpmn-canvas { min-height: 200px; max-height: 500px; overflow: auto; display: flex; align-items: center; justify-content: center; padding: 12px; }
-    #bpmn-canvas img { max-width: 100%; height: auto; }
-    #bpmn-canvas .loading-diagram { color: #888; font-size: 13px; padding: 20px; }
-    .bpmn-btn {
+    #bpmn-canvas { height: 340px; }
+    #btn-download-bpmn {
       font-size: 12px; padding: 6px 14px; border-radius: 8px;
       background: var(--accent); color: #fff; border: none; cursor: pointer;
-      font-weight: 500; transition: opacity 0.2s; margin-left: 6px;
+      font-weight: 500; transition: opacity 0.2s;
     }
-    .bpmn-btn:hover { opacity: 0.85; }
+    #btn-download-bpmn:hover { opacity: 0.85; }
 
     /* CTA card */
     #cta-card {
@@ -361,11 +359,8 @@
     <!-- BPMN viewer -->
     <div id="bpmn-panel">
       <div id="bpmn-toolbar">
-        <span>📊 Diagrama de Proceso generado</span>
-        <div>
-          <button class="bpmn-btn" id="btn-download-svg" title="Descargar imagen del diagrama">⬇ SVG</button>
-          <button class="bpmn-btn" id="btn-download-bpmn" title="Descargar archivo editable para Bizagi">⬇ BPMN</button>
-        </div>
+        <span>📊 Diagrama BPMN generado</span>
+        <button id="btn-download-bpmn">⬇ Descargar XML</button>
       </div>
       <div id="bpmn-canvas"></div>
     </div>
@@ -392,12 +387,11 @@
 
 <script>
   // ── State ──────────────────────────────────────────────
-  let sessionId    = null;
+  let sessionId   = null;
   let currentStage = 'IDENTIFICATION';
-  let bpmnXml      = null;
-  let plantumlCode = null;
-  let svgData      = null;
-  let isLoading    = false;
+  let bpmnXml     = null;
+  let bpmnViewer  = null;
+  let isLoading   = false;
 
   const STAGE_ORDER = ['IDENTIFICATION','PROCESS_INTERVIEW','NARRATIVE_REVIEW','BPMN_READY','CTA'];
 
@@ -472,49 +466,25 @@
     document.getElementById('lf-cargo').innerHTML   = `Cargo: <span>${lead.cargo}</span>`;
   }
 
-  // ── Render diagram via Kroki (PlantUML → SVG) ───────────
-  async function renderDiagram(puml, xml) {
-    plantumlCode = puml;
+  // ── Render BPMN ─────────────────────────────────────────
+  function renderBpmn(xml) {
     bpmnXml = xml;
     bpmnPanel.classList.add('visible');
 
-    const canvas = document.getElementById('bpmn-canvas');
-    canvas.innerHTML = '<div class="loading-diagram">⏳ Generando diagrama visual…</div>';
-
-    try {
-      const res = await fetch('https://kroki.io/plantuml/svg', {
-        method: 'POST',
-        headers: { 'Content-Type': 'text/plain' },
-        body: puml,
-      });
-
-      if (!res.ok) throw new Error(`Kroki HTTP ${res.status}`);
-      svgData = await res.text();
-
-      canvas.innerHTML = '';
-      const img = document.createElement('img');
-      img.src = 'data:image/svg+xml;base64,' + btoa(unescape(encodeURIComponent(svgData)));
-      img.alt = 'Diagrama de Proceso';
-      canvas.appendChild(img);
-    } catch (err) {
-      console.warn('Kroki render error:', err);
-      canvas.innerHTML =
-        '<p style="padding:16px;color:#888;font-size:13px">No se pudo renderizar el diagrama visual. Los archivos fueron guardados correctamente.</p>';
+    if (!bpmnViewer) {
+      bpmnViewer = new BpmnJS({ container: '#bpmn-canvas' });
     }
 
-    // Download SVG image
-    document.getElementById('btn-download-svg').onclick = () => {
-      if (!svgData) return;
-      const blob = new Blob([svgData], { type: 'image/svg+xml' });
-      const url  = URL.createObjectURL(blob);
-      const a    = Object.assign(document.createElement('a'), { href: url, download: 'proceso_rhenic.svg' });
-      a.click(); URL.revokeObjectURL(url);
-    };
+    bpmnViewer.importXML(xml).then(() => {
+      bpmnViewer.get('canvas').zoom('fit-viewport');
+    }).catch(err => {
+      console.warn('BPMN render error:', err);
+      document.getElementById('bpmn-canvas').innerHTML =
+        '<p style="padding:16px;color:#888;font-size:13px">No se pudo renderizar el diagrama. El XML fue guardado correctamente.</p>';
+    });
 
-    // Download .bpmn file (for Bizagi)
     document.getElementById('btn-download-bpmn').onclick = () => {
-      if (!bpmnXml) return;
-      const blob = new Blob([bpmnXml], { type: 'application/xml' });
+      const blob = new Blob([xml], { type: 'application/xml' });
       const url  = URL.createObjectURL(blob);
       const a    = Object.assign(document.createElement('a'), { href: url, download: 'proceso_rhenic.bpmn' });
       a.click(); URL.revokeObjectURL(url);
@@ -563,7 +533,7 @@
       updateStageUI(data.stage);
 
       if (data.lead_data && data.lead_data.nombre) updateLeadCard(data.lead_data);
-      if (data.plantuml_code) renderDiagram(data.plantuml_code, data.bpmn_xml);
+      if (data.bpmn_xml)    renderBpmn(data.bpmn_xml);
       if (data.show_calendly) showCTA(data.calendly_url);
 
     } catch (err) {
