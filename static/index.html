@@ -200,30 +200,7 @@
       30%         { transform: translateY(-6px); }
     }
 
-    /* BPMN panel */
-    #bpmn-panel {
-      display: none;
-      margin: 0 28px 12px;
-      border: 1px solid var(--border);
-      border-radius: var(--radius);
-      overflow: hidden;
-      background: #fff;
-    }
-    #bpmn-panel.visible { display: block; animation: fadeUp 0.4s ease; }
-    #bpmn-toolbar {
-      background: var(--surface2);
-      padding: 10px 16px;
-      display: flex; align-items: center; justify-content: space-between;
-      border-bottom: 1px solid var(--border);
-    }
-    #bpmn-toolbar span { font-size: 13px; font-weight: 600; color: #a78bfa; }
-    #bpmn-canvas { height: 340px; }
-    #btn-download-bpmn {
-      font-size: 12px; padding: 6px 14px; border-radius: 8px;
-      background: var(--accent); color: #fff; border: none; cursor: pointer;
-      font-weight: 500; transition: opacity 0.2s;
-    }
-    #btn-download-bpmn:hover { opacity: 0.85; }
+    /* BPMN panel removed */
 
     /* CTA card */
     #cta-card {
@@ -247,6 +224,15 @@
       box-shadow: 0 4px 20px var(--accent-glow);
     }
     #btn-calendly:hover { transform: translateY(-2px); box-shadow: 0 8px 28px var(--accent-glow); }
+    #btn-no-thanks {
+      white-space: nowrap; flex-shrink: 0;
+      padding: 11px 22px; border-radius: 10px;
+      background: transparent;
+      color: #a78bfa; font-size: 14px; font-weight: 600;
+      border: 1px solid rgba(124,58,237,0.3); cursor: pointer;
+      transition: background 0.15s, transform 0.15s;
+    }
+    #btn-no-thanks:hover { background: rgba(124,58,237,0.1); transform: translateY(-2px); }
 
     /* Input area */
     #input-area {
@@ -356,22 +342,16 @@
       <div class="dot"></div>
     </div>
 
-    <!-- BPMN viewer -->
-    <div id="bpmn-panel">
-      <div id="bpmn-toolbar">
-        <span>📊 Diagrama BPMN generado</span>
-        <button id="btn-download-bpmn">⬇ Descargar XML</button>
-      </div>
-      <div id="bpmn-canvas"></div>
-    </div>
-
     <!-- CTA card -->
     <div id="cta-card">
       <div>
         <h3>¿Listo para el siguiente paso?</h3>
         <p>Instructivos, matriz de roles y tu Instructor Inteligente 24/7</p>
       </div>
-      <a id="btn-calendly" href="#" target="_blank" rel="noopener">📅 Agendar reunión</a>
+      <div style="display: flex; gap: 8px;">
+        <button id="btn-no-thanks">No por ahora</button>
+        <a id="btn-calendly" href="#" target="_blank" rel="noopener">📅 Agendar reunión</a>
+      </div>
     </div>
 
     <!-- Input -->
@@ -466,42 +446,7 @@
     document.getElementById('lf-cargo').innerHTML   = `Cargo: <span>${lead.cargo}</span>`;
   }
 
-  // ── Render Diagram via Kroki (PlantUML) ──────────────────
-  function renderDiagram(plantUmlCode, bpmnXmlForDownload) {
-    bpmnXml = bpmnXmlForDownload;
-    bpmnPanel.classList.add('visible');
 
-    const canvas = document.getElementById('bpmn-canvas');
-
-    try {
-      const encoded = btoa(unescape(encodeURIComponent(plantUmlCode)))
-        .replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
-      const krokiUrl = `https://kroki.io/plantuml/svg/${encoded}`;
-
-      canvas.innerHTML = `
-        <div style="text-align:center;padding:12px 0;">
-          <img
-            src="${krokiUrl}"
-            alt="Diagrama del proceso"
-            style="max-width:100%;max-height:360px;border-radius:8px;"
-            onerror="this.parentElement.innerHTML='<p style=\'padding:16px;color:#888;font-size:13px\'>No se pudo renderizar el diagrama. El archivo .bpmn fue guardado correctamente.</p>'"
-          />
-        </div>`;
-    } catch (e) {
-      canvas.innerHTML = '<p style="padding:16px;color:#888;font-size:13px">No se pudo generar la URL del diagrama.</p>';
-    }
-
-    // Download .bpmn estructural para Bizagi
-    document.getElementById('btn-download-bpmn').onclick = () => {
-      if (!bpmnXml) return;
-      const blob = new Blob([bpmnXml], { type: 'application/xml' });
-      const url  = URL.createObjectURL(blob);
-      const a    = Object.assign(document.createElement('a'), { href: url, download: 'proceso_rhenic.bpmn' });
-      a.click(); URL.revokeObjectURL(url);
-    };
-
-    messagesEl.scrollTop = messagesEl.scrollHeight;
-  }
 
   // ── Show CTA card ───────────────────────────────────────
   function showCTA(url) {
@@ -543,7 +488,6 @@
       updateStageUI(data.stage);
 
       if (data.lead_data && data.lead_data.nombre) updateLeadCard(data.lead_data);
-      if (data.plantuml_code) renderDiagram(data.plantuml_code, data.bpmn_xml);
       if (data.show_calendly) showCTA(data.calendly_url);
 
     } catch (err) {
@@ -556,6 +500,13 @@
       inputEl.focus();
     }
   }
+
+  // ── Handle No Thanks ────────────────────────────────────
+  document.getElementById('btn-no-thanks').addEventListener('click', () => {
+    ctaCard.classList.remove('visible');
+    document.getElementById('input-area').style.display = 'none';
+    appendMessage('silvie', '¡No hay problema! Revisá tu correo con el diagrama generado y que tengas un excelente día. 👋');
+  });
 
   // ── Init greeting ───────────────────────────────────────
   window.addEventListener('DOMContentLoaded', async () => {
