@@ -13,7 +13,7 @@ from dotenv import load_dotenv
 
 from database import LeadDatabase
 from prompts import build_system_prompt
-from bpmn_gen import generate_bpmn_xml, fallback_bpmn
+from bpmn_gen import generate_bpmn_xml, fallback_bpmn, generate_plantuml, fallback_plantuml
 
 load_dotenv()
 
@@ -58,6 +58,7 @@ class ChatResponse(BaseModel):
     stage: str
     lead_data: dict = {}
     bpmn_xml: Optional[str] = None
+    plantuml_code: Optional[str] = None
     show_calendly: bool = False
     calendly_url: str = ""
 
@@ -71,6 +72,7 @@ def new_session() -> dict:
         "process_info": {},
         "narrative": "",
         "bpmn_xml": None,
+        "plantuml_code": None,
         "history": [],
     }
 
@@ -139,7 +141,8 @@ async def chat(req: ChatRequest):
 
     # ── Process markers ──────────────────────
     show_calendly = False
-    bpmn_xml = s.get("bpmn_xml")
+    bpmn_xml      = s.get("bpmn_xml")
+    plantuml_code = s.get("plantuml_code")
 
     for marker in markers:
 
@@ -180,8 +183,18 @@ async def chat(req: ChatRequest):
             s["narrative"] = clean_response
             s["stage"] = "BPMN_READY"
 
-        # ── Generate BPMN ────────────────────
+        # ── Generate BPMN + PlantUML ────────────────
         elif marker == "GENERATE_BPMN":
+            # PlantUML — for visual rendering in PDF via Kroki
+            try:
+                puml = generate_plantuml(client, s["history"], s["lead_data"])
+            except Exception:
+                puml = fallback_plantuml(s["lead_data"])
+
+            s["plantuml_code"] = puml
+            plantuml_code = puml
+
+            # BPMN XML — structural only, for Bizagi download
             try:
                 xml = generate_bpmn_xml(client, s["history"], s["lead_data"])
             except Exception:
@@ -208,6 +221,7 @@ async def chat(req: ChatRequest):
         stage=s["stage"],
         lead_data=s["lead_data"],
         bpmn_xml=bpmn_xml,
+        plantuml_code=plantuml_code,
         show_calendly=show_calendly,
         calendly_url=CALENDLY_URL,
     )

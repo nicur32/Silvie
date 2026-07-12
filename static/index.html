@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com"/>
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet"/>
-  <script src="https://unpkg.com/bpmn-js@14/dist/bpmn-viewer.production.min.js"></script>
+  <!-- No external diagram lib needed: Kroki renders PlantUML server-side -->
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -456,7 +456,7 @@
     });
   }
 
-  // ── Update lead card ────────────────────────────────────
+  // ── Update lead card ────────────────────────────────────────
   function updateLeadCard(lead) {
     if (!lead || !lead.nombre) return;
     leadCard.classList.add('visible');
@@ -466,25 +466,35 @@
     document.getElementById('lf-cargo').innerHTML   = `Cargo: <span>${lead.cargo}</span>`;
   }
 
-  // ── Render BPMN ─────────────────────────────────────────
-  function renderBpmn(xml) {
-    bpmnXml = xml;
+  // ── Render Diagram via Kroki (PlantUML) ──────────────────
+  function renderDiagram(plantUmlCode, bpmnXmlForDownload) {
+    bpmnXml = bpmnXmlForDownload;
     bpmnPanel.classList.add('visible');
 
-    if (!bpmnViewer) {
-      bpmnViewer = new BpmnJS({ container: '#bpmn-canvas' });
+    const canvas = document.getElementById('bpmn-canvas');
+
+    try {
+      const encoded = btoa(unescape(encodeURIComponent(plantUmlCode)))
+        .replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+      const krokiUrl = `https://kroki.io/plantuml/svg/${encoded}`;
+
+      canvas.innerHTML = `
+        <div style="text-align:center;padding:12px 0;">
+          <img
+            src="${krokiUrl}"
+            alt="Diagrama del proceso"
+            style="max-width:100%;max-height:360px;border-radius:8px;"
+            onerror="this.parentElement.innerHTML='<p style=\'padding:16px;color:#888;font-size:13px\'>No se pudo renderizar el diagrama. El archivo .bpmn fue guardado correctamente.</p>'"
+          />
+        </div>`;
+    } catch (e) {
+      canvas.innerHTML = '<p style="padding:16px;color:#888;font-size:13px">No se pudo generar la URL del diagrama.</p>';
     }
 
-    bpmnViewer.importXML(xml).then(() => {
-      bpmnViewer.get('canvas').zoom('fit-viewport');
-    }).catch(err => {
-      console.warn('BPMN render error:', err);
-      document.getElementById('bpmn-canvas').innerHTML =
-        '<p style="padding:16px;color:#888;font-size:13px">No se pudo renderizar el diagrama. El XML fue guardado correctamente.</p>';
-    });
-
+    // Download .bpmn estructural para Bizagi
     document.getElementById('btn-download-bpmn').onclick = () => {
-      const blob = new Blob([xml], { type: 'application/xml' });
+      if (!bpmnXml) return;
+      const blob = new Blob([bpmnXml], { type: 'application/xml' });
       const url  = URL.createObjectURL(blob);
       const a    = Object.assign(document.createElement('a'), { href: url, download: 'proceso_rhenic.bpmn' });
       a.click(); URL.revokeObjectURL(url);
@@ -533,7 +543,7 @@
       updateStageUI(data.stage);
 
       if (data.lead_data && data.lead_data.nombre) updateLeadCard(data.lead_data);
-      if (data.bpmn_xml)    renderBpmn(data.bpmn_xml);
+      if (data.plantuml_code) renderDiagram(data.plantuml_code, data.bpmn_xml);
       if (data.show_calendly) showCTA(data.calendly_url);
 
     } catch (err) {
