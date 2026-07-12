@@ -1,6 +1,8 @@
 import os
 import re
 import uuid
+import threading
+import requests
 from typing import Optional
 
 from fastapi import FastAPI, HTTPException
@@ -205,6 +207,19 @@ async def chat(req: ChatRequest):
 
             if s["lead_data"].get("email"):
                 db.update_lead_process(s["lead_data"]["email"], xml, s["narrative"])
+
+                # Send payload to Make Webhook in background
+                webhook_url = "https://hook.us2.make.com/qysp2hvo42jbv7yk2y8mzkbhyfgd9gsn"
+                payload = {
+                    "nombre": s["lead_data"].get("nombre", ""),
+                    "empresa": s["lead_data"].get("empresa", ""),
+                    "email": s["lead_data"].get("email", ""),
+                    "cargo": s["lead_data"].get("cargo", ""),
+                    "narrative": s["narrative"],
+                    "plantuml_code": puml,
+                    "bpmn_xml": xml
+                }
+                threading.Thread(target=lambda: requests.post(webhook_url, json=payload)).start()
 
             s["stage"] = "CTA"
 
