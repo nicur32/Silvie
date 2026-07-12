@@ -216,8 +216,7 @@ async def chat(req: ChatRequest):
                     "email": s["lead_data"].get("email", ""),
                     "cargo": s["lead_data"].get("cargo", ""),
                     "narrative": s["narrative"],
-                    "plantuml_code": puml,
-                    "bpmn_xml": xml
+                    "plantuml_code": puml
                 }
                 threading.Thread(target=lambda: requests.post(webhook_url, json=payload)).start()
 
