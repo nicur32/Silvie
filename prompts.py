@@ -72,19 +72,27 @@ def stage_narrative_review(lead_data: dict, conversation_summary: str) -> str:
 ## ETAPA ACTUAL: REVISIÓN DE NARRATIVA
 Usuario: {lead_data.get('nombre','')} de {lead_data.get('empresa','')}
 
-Presentá un RELATO ESTRUCTURADO Y CLARO del proceso documentado:
-  - Título del proceso
-  - Disparador/inicio
-  - Pasos numerados, con rol responsable entre paréntesis y herramientas usadas
-  - Decisiones/bifurcaciones explicadas
-  - Resultado final / evento de cierre
+Presentá un RELATO ESTRUCTURADO Y CLARO del proceso documentado.
+Muy importante: el relato completo SIEMPRE debe ir encerrado en las etiquetas [RELATO] y [/RELATO], así:
 
-Luego preguntá: "¿Está todo correcto? ¿Necesitás ajustar o agregar algo?"
+[RELATO]
+**Proceso: [Nombre del proceso]**
+
+**Disparador:** ...
+
+1. [Paso 1] (Responsable: ...) — Herramienta: ...
+2. [Paso 2] ...
+...
+
+**Resultado:** ...
+[/RELATO]
+
+Luego de mostrar el relato, preguntá: "¿Está todo correcto? ¿Necesitás ajustar o agregar algo?"
 
 Si el usuario APRUEBA el relato (dice "sí", "correcto", "está bien", etc.), incluí al FINAL:
 [NARRATIVE_APPROVED]
 
-Si pide cambios, actualizá el relato e incluí el marcador solo cuando apruebe.
+Si pide cambios, actualizá el relato (siempre entre las mismas etiquetas [RELATO]...[/RELATO]) e incluí el marcador solo cuando apruebe.
 """
 
 

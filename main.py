@@ -79,9 +79,17 @@ def new_session() -> dict:
     }
 
 
-def extract_markers(text: str) -> tuple[str, list[str]]:
-    """Strip internal markers from LLM output; return clean text + list of found markers."""
+def extract_markers(text: str) -> tuple[str, list[str], str | None]:
+    """Strip internal markers from LLM output; return clean text + list of found markers + optional relato."""
     markers = []
+    relato = None
+
+    # Extract [RELATO]...[/RELATO] block (used to cache the narrative independently of approval)
+    m_relato = re.search(r"\[RELATO\](.+?)\[/RELATO\]", text, re.DOTALL)
+    if m_relato:
+        relato = m_relato.group(1).strip()
+        # Keep the relato visible to the user but remove the tags themselves
+        text = text.replace("[RELATO]", "").replace("[/RELATO]", "").strip()
 
     # [LEAD_COMPLETE:name|company|email|role]
     m = re.search(r"\[LEAD_COMPLETE:([^\]]+)\]", text)
@@ -94,7 +102,7 @@ def extract_markers(text: str) -> tuple[str, list[str]]:
             markers.append(tag)
             text = text.replace(f"[{tag}]", "").strip()
 
-    return text, markers
+    return text, markers, relato
 
 
 def call_llm(messages: list[dict]) -> str:
@@ -139,7 +147,11 @@ async def chat(req: ChatRequest):
         raise HTTPException(status_code=502, detail=f"LLM error: {e}")
 
     # Extract markers
-    clean_response, markers = extract_markers(raw_response)
+    clean_response, markers, relato = extract_markers(raw_response)
+
+    # Cache relato in session whenever the LLM provides one
+    if relato:
+        s["narrative"] = relato
 
     # ── Process markers ──────────────────────
     show_calendly = False
@@ -180,9 +192,12 @@ async def chat(req: ChatRequest):
         elif marker == "INTERVIEW_COMPLETE":
             s["stage"] = "NARRATIVE_REVIEW"
 
-        # ── Narrative approved ───────────────
+        # ── Narrative approved ─────────────────────────────
         elif marker == "NARRATIVE_APPROVED":
-            s["narrative"] = clean_response
+            # s["narrative"] already holds the relato extracted earlier;
+            # only fall back to clean_response if somehow nothing was cached.
+            if not s["narrative"]:
+                s["narrative"] = clean_response
             s["stage"] = "BPMN_READY"
 
         # ── Generate BPMN + PlantUML ────────────────
