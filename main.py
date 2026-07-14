@@ -225,13 +225,18 @@ async def chat(req: ChatRequest):
 
                 # Send payload to Make Webhook in background
                 webhook_url = "https://hook.us2.make.com/qysp2hvo42jbv7yk2y8mzkbhyfgd9gsn"
+                import datetime
                 payload = {
                     "nombre": s["lead_data"].get("nombre", ""),
                     "empresa": s["lead_data"].get("empresa", ""),
                     "email": s["lead_data"].get("email", ""),
+                    "correo": s["lead_data"].get("email", ""),
                     "cargo": s["lead_data"].get("cargo", ""),
+                    "telefono": s["lead_data"].get("telefono", "No especificado"),
                     "narrative": s["narrative"],
-                    "plantuml_code": puml
+                    "resumenNarrativo": s["narrative"],
+                    "plantuml_code": puml,
+                    "fecha": datetime.date.today().strftime("%d/%m/%Y")
                 }
                 threading.Thread(target=lambda: requests.post(webhook_url, json=payload)).start()
 
