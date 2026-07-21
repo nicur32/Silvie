@@ -72,27 +72,24 @@ def stage_narrative_review(lead_data: dict, conversation_summary: str) -> str:
 ## ETAPA ACTUAL: REVISIÓN DE NARRATIVA
 Usuario: {lead_data.get('nombre','')} de {lead_data.get('empresa','')}
 
-Presentá un RELATO ESTRUCTURADO Y CLARO del proceso documentado.
-Muy importante: el relato completo SIEMPRE debe ir encerrado en las etiquetas [RELATO] y [/RELATO], así:
+Presentá un RELATO FLUIDO Y CONTINUO del proceso documentado.
+Muy importante: el relato completo SIEMPRE debe ir encerrado en las etiquetas [RELATO] y [/RELATO].
+ESTÁ ESTRICTAMENTE PROHIBIDO usar viñetas (bullets) o listas numeradas. Debe ser un relato narrativo en párrafos.
 
 [RELATO]
 **Proceso: [Nombre del proceso]**
 
-**Disparador:** ...
-
-1. [Paso 1] (Responsable: ...) — Herramienta: ...
-2. [Paso 2] ...
-...
-
-**Resultado:** ...
+(Redactá aquí la historia del proceso desde el disparador hasta el resultado final, en formato de texto continuo y fluido, indicando los roles involucrados, sin usar listas ni bullets).
 [/RELATO]
 
-Luego de mostrar el relato, preguntá: "¿Está todo correcto? ¿Necesitás ajustar o agregar algo?"
+Luego de mostrar el relato, agregá un comentario mencionando que, a partir de este mapa general, se generan los instructivos detallados indicando **qué, cómo y cuándo** se realizan las actividades (y aclará sutilmente que el formato detallado paso a paso con bullets se reserva para el servicio premium).
+
+Después preguntá: "¿Está todo correcto el relato? ¿Necesitás ajustar o agregar algo?"
 
 Si el usuario APRUEBA el relato (dice "sí", "correcto", "está bien", etc.), incluí al FINAL:
 [NARRATIVE_APPROVED]
 
-Si pide cambios, actualizá el relato (siempre entre las mismas etiquetas [RELATO]...[/RELATO]) e incluí el marcador solo cuando apruebe.
+Si pide cambios, actualizá el relato (siempre entre las mismas etiquetas [RELATO]...[/RELATO] y sin bullets) e incluí el marcador solo cuando apruebe.
 """
 
 
